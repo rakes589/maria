@@ -2,6 +2,9 @@ package com.example.jarvis.builder
 
 import android.content.Context
 import java.io.File
+import java.io.FileOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -12,6 +15,8 @@ class ProjectFileManager(context: Context, projectName: String = "landing-page")
     suspend fun writeFile(path: String, content: String): Result<Unit> = withContext(Dispatchers.IO) { runCatching { val f = safeFile(path); require(f.parentFile?.let { it.isDirectory || it.mkdirs() } != false); val tmp = File(f.parentFile, ".${f.name}.tmp"); tmp.writeText(content); require(tmp.renameTo(f) || f.writeTextAndReturn(content).let { tmp.delete(); true }) } }
     suspend fun readAllFiles(): Result<Map<String, String>> = withContext(Dispatchers.IO) { runCatching { ensureWorkspace(); root.walkTopDown().filter { it.isFile && !it.name.endsWith(".tmp") }.associate { it.relativeTo(root).invariantSeparatorsPath to it.readText() } } }
     suspend fun readFile(path: String): Result<String> = withContext(Dispatchers.IO) { runCatching { ensureWorkspace(); safeFile(path).takeIf { it.isFile }?.readText() ?: "" } }
+    suspend fun exportZip(destination: File): Result<File> = withContext(Dispatchers.IO) { runCatching { ensureWorkspace(); destination.parentFile?.mkdirs(); ZipOutputStream(FileOutputStream(destination)).use { zip -> root.walkTopDown().filter { it.isFile }.forEach { file -> zip.putNextEntry(ZipEntry(file.relativeTo(root).invariantSeparatorsPath)); file.inputStream().use { it.copyTo(zip) }; zip.closeEntry() } }; destination } }
+    suspend fun snapshot(label: String): Result<File> = withContext(Dispatchers.IO) { exportZip(File(root.parentFile, "snapshots/${label.replace(Regex("[^A-Za-z0-9._-]"), "_")}-${System.currentTimeMillis()}.zip")) }
     fun safeFile(path: String): File { require(path.isNotBlank() && !path.startsWith('/')); val r = root.canonicalFile; val f = File(r, path).canonicalFile; require(f == r || f.path.startsWith(r.path + File.separator)); return f }
     private fun File.writeTextAndReturn(value: String) { writeText(value) }
     private val defaults = mapOf("index.html" to "<!doctype html><html><head><link rel=\"stylesheet\" href=\"style.css\"></head><body><h1>Jarvis Builder</h1><script src=\"script.js\"></script></body></html>", "style.css" to "body{font-family:system-ui;margin:3rem}", "script.js" to "console.log('Jarvis project loaded');")
