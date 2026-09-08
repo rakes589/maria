@@ -33,7 +33,8 @@ class VoiceAgentService : Service() {
         capsule = FloatingCapsuleController(this).also { it.show() }
         scope.launch { AgentStateManager.state.collect { capsule?.update(it) } }
         val key = getSharedPreferences("agent", MODE_PRIVATE).getString("gemini_key", null).orEmpty()
-        if (key.isNotBlank()) gemini = GeminiAgentManager(key)
+        val model = getSharedPreferences("agent", MODE_PRIVATE).getString("gemini_model", "gemini-flash-latest").orEmpty().ifBlank { "gemini-flash-latest" }
+        if (key.isNotBlank()) gemini = GeminiAgentManager(key, model)
         tts = TextToSpeechHelper(this)
         speech = SpeechHandler(this, "maria") { text -> handle(text) }.also { it.start() }
         AgentStateManager.set(AgentState.LISTENING)
