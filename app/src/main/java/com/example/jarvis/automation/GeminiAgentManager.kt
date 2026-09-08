@@ -24,22 +24,24 @@ import kotlinx.serialization.json.jsonPrimitive
 
 class GeminiAgentManager(private val apiKey: String, model: String = "gemini-flash-latest") : AutoCloseable {
     sealed interface State { data object Idle : State; data object Thinking : State; data object ExecutingTool : State; data class Ready(val text: String) : State; data class Failed(val message: String) : State }
-    private val client = Client(apiKey = apiKey)
+    // Do not initialize the network client during Activity startup when the user has not yet
+    // configured credentials. The Builder UI must remain usable without Gemini configured.
+    private val client: Client? = apiKey.trim().takeIf { it.isNotEmpty() }?.let { Client(apiKey = it) }
     private val mutex = Mutex()
-    private val chat: Chat
+    private val chat: Chat?
     private val _state = kotlinx.coroutines.flow.MutableStateFlow<State>(State.Idle)
     val state = _state.asStateFlow()
-    init { chat = client.chats.create(model = model, config = GenerateContentConfig(systemInstruction = Content.fromText("You are Jarvis. Be concise. Use tools only when needed. Never claim an action succeeded unless the tool result says so."), tools = listOf(deviceTool()), temperature = 0.2)) }
+    init { chat = client?.chats?.create(model = model, config = GenerateContentConfig(systemInstruction = Content.fromText("You are Jarvis. Be concise. Use tools only when needed. Never claim an action succeeded unless the tool result says so."), tools = listOf(deviceTool()), temperature = 0.2)) }
 
     suspend fun processTranscript(text: String): Result<String> = withContext(Dispatchers.IO) { mutex.withLock {
-        try { _state.value = State.Thinking; var response = chat.sendMessage(text); var rounds = 5
+        try { val activeChat = chat ?: error("Gemini API key is not configured"); _state.value = State.Thinking; var response = activeChat.sendMessage(text); var rounds = 5
             while (response.functionCalls.orEmpty().isNotEmpty() && rounds-- > 0) {
                 val modelContent = response.candidates?.firstOrNull()?.content ?: error("Missing model function content")
                 val call = response.functionCalls!!.singleOrNull()
                 response = if (call?.name == "analyzeScreenContext") analyzeScreen(call, modelContent) else {
                     _state.value = State.ExecutingTool
                     val parts = response.functionCalls.orEmpty().map { c -> Part(functionResponse = FunctionResponse(id = c.id, name = c.name, response = dispatch(c))) }
-                    chat.sendMessage(listOf(modelContent, Content(role = "user", parts = parts)))
+                    activeChat.sendMessage(listOf(modelContent, Content(role = "user", parts = parts)))
                 }
             }
             if (response.functionCalls.orEmpty().isNotEmpty()) error("Tool call limit reached")
@@ -57,7 +59,7 @@ class GeminiAgentManager(private val apiKey: String, model: String = "gemini-fla
             Part(text = "Question: $question\nAccessibility tree:\n${ScreenContextService.latestSnapshot()}"),
             Part(inlineData = Blob(data = capture.bytes, mimeType = capture.mimeType))
         ))
-        chat.sendMessage(listOf(modelContent, content))
+        (chat ?: error("Gemini API key is not configured")).sendMessage(listOf(modelContent, content))
     }
 
     private suspend fun dispatch(call: FunctionCall): Map<String, JsonElement> {
@@ -77,6 +79,6 @@ class GeminiAgentManager(private val apiKey: String, model: String = "gemini-fla
         FunctionDeclaration(name = "generateCodeProject", description = "Request IDE builder generation.", parameters = objectSchema("prompt" to Schema(type = Type.STRING), "type" to Schema(type = Type.STRING))),
         FunctionDeclaration(name = "analyzeScreenContext", description = "Inspect the current screen using accessibility text and a screenshot.", parameters = objectSchema("question" to Schema(type = Type.STRING)))
     ))
-    override fun close() { client.close() }
+    override fun close() { client?.close() }
     fun clearTransientCaches() = Unit
 }
