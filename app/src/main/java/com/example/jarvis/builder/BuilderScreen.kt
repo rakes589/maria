@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -15,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
+@OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled")
 @Composable fun BuilderScreen(vm: BuilderViewModel, modifier: Modifier = Modifier) {
     val state by vm.state.collectAsStateWithLifecycle(); val files = listOf("index.html", "style.css", "script.js"); var code by remember(state.selectedFile, state.files) { mutableStateOf(state.files[state.selectedFile].orEmpty()) }

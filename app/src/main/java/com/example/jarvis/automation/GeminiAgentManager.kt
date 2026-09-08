@@ -43,8 +43,10 @@ class GeminiAgentManager(private val apiKey: String, model: String = "gemini-fla
                 }
             }
             if (response.functionCalls.orEmpty().isNotEmpty()) error("Tool call limit reached")
-            response.text?.trim()?.takeIf { it.isNotBlank() }?.also { _state.value = State.Ready(it) } ?: error("Empty Gemini response")
-        } catch (t: Throwable) { _state.value = State.Failed(t.message ?: "Gemini failed"); Result.failure(t) }
+            val finalText = response.text?.trim()?.takeIf { it.isNotBlank() } ?: error("Empty Gemini response")
+            _state.value = State.Ready(finalText)
+            Result.success(finalText)
+        } catch (t: Throwable) { _state.value = State.Failed(t.message ?: "Gemini failed"); Result.failure<String>(t) }
     } }
 
     private suspend fun analyzeScreen(call: FunctionCall, modelContent: Content) = withContext(Dispatchers.IO) {
