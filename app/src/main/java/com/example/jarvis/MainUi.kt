@@ -1,6 +1,7 @@
 package com.example.jarvis
 
 import android.annotation.SuppressLint
+import android.Manifest
 import android.content.Intent
 import android.provider.Settings
 import android.webkit.WebView
@@ -35,6 +36,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.example.jarvis.agent.AgentState
 import com.example.jarvis.agent.AgentStateManager
 import com.example.jarvis.automation.RootShellHelper
@@ -131,7 +134,7 @@ private fun navIcon(i: Int) = when (i) { 0 -> Icons.Default.Home; 1 -> Icons.Def
 
 @Composable private fun DevScreen() { Column(Modifier.fillMaxSize()) { SectionTitle("DEVELOPER TOOLS", "Agent diagnostics and advanced workflows"); listOf("Analyze current screen", "Run Auto-Fix", "Export project ZIP", "Restart system monitor", "Reset local microservice").forEach { Activity(it, "Available action", Purple) } } }
 
-@Composable private fun SettingsScreen() { val context = LocalContext.current; var capsule by remember { mutableStateOf(true) }; var assistant by remember { mutableStateOf(true) }; Column(Modifier.fillMaxSize()) { SectionTitle("SETTINGS", "Maria runtime configuration"); Setting("Dynamic top capsule", capsule) { capsule = it }; Setting("Background assistant service", assistant) { assistant = it }; Setting("Live web search browsing", false) {}; Spacer(Modifier.height(18.dp)); Button(onClick = { requestBatteryOptimizationExemption(context) }, colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Ink)) { Text("ALLOW BACKGROUND SURVIVAL") }; TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }) { Text("OPEN ACCESSIBILITY SETTINGS", color = Purple) }; TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)) }) { Text("OPEN OVERLAY SETTINGS", color = Purple) } } }
+@Composable private fun SettingsScreen() { val context = LocalContext.current; var capsule by remember { mutableStateOf(true) }; var assistant by remember { mutableStateOf(true) }; val mic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}; Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) { SectionTitle("SETTINGS", "Maria runtime configuration"); Setting("Dynamic top capsule", capsule) { capsule = it }; Setting("Background assistant service", assistant) { assistant = it }; Setting("Live web search browsing", false) {}; Spacer(Modifier.height(12.dp)); Text("DEVICE ACCESS", color = Muted, fontSize = 10.sp, letterSpacing = 2.sp); Button(onClick = { mic.launch(Manifest.permission.RECORD_AUDIO) }, colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Ink), modifier = Modifier.padding(top = 10.dp)) { Text("ALLOW MICROPHONE") }; Button(onClick = { requestBatteryOptimizationExemption(context) }, colors = ButtonDefaults.buttonColors(containerColor = Raised), modifier = Modifier.padding(top = 8.dp)) { Text("ALLOW BACKGROUND SURVIVAL", color = Teal) }; TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }) { Text("OPEN ACCESSIBILITY SETTINGS", color = Purple) }; TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)) }) { Text("OPEN OVERLAY SETTINGS", color = Purple) } } }
 
 @Composable private fun SectionTitle(title: String, subtitle: String) { Text(title, color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 14.dp)); Text(subtitle, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 5.dp, bottom = 14.dp)) }
 @Composable private fun CardBox(content: @Composable ColumnScope.() -> Unit) { Surface(color = Panel, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(17.dp), content = content) } }

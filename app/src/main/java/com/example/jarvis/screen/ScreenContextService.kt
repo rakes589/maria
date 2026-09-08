@@ -9,7 +9,8 @@ import java.util.concurrent.atomic.AtomicReference
 class ScreenContextService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) { when (event?.eventType) { AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED, AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED, AccessibilityEvent.TYPE_VIEW_SCROLLED, AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> latest.set(captureCurrentUiTree()) } }
     override fun onInterrupt() = Unit
-    override fun onServiceConnected() { super.onServiceConnected(); latest.set(captureCurrentUiTree()) }
+    override fun onServiceConnected() { super.onServiceConnected(); AccessibilityActionExecutor.attach(this); latest.set(captureCurrentUiTree()) }
+    override fun onDestroy() { AccessibilityActionExecutor.detach(this); super.onDestroy() }
     fun captureCurrentUiTree(): String {
         val root = rootInActiveWindow ?: return "No active window"
         val q = ArrayDeque<Pair<AccessibilityNodeInfo, Int>>(); val out = StringBuilder(); q.add(root to 0); var count = 0
