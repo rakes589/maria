@@ -44,6 +44,7 @@ import com.example.jarvis.agent.AgentTaskPlanner
 import com.example.jarvis.automation.RootShellHelper
 import com.example.jarvis.automation.VoiceAgentService
 import com.example.jarvis.builder.ProjectFileManager
+import com.example.jarvis.builder.CodeDiagnostics
 import com.example.jarvis.settings.requestBatteryOptimizationExemption
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -123,7 +124,8 @@ private fun navIcon(i: Int) = when (i) { 0 -> Icons.Default.Home; 1 -> Icons.Def
 @Composable private fun EditorScreen(manager: ProjectFileManager) {
     val scope = rememberCoroutineScope(); var file by remember { mutableStateOf("index.html") }; var code by remember { mutableStateOf("") }; var saved by remember { mutableStateOf(false) }; val files = listOf("index.html", "style.css", "script.js")
     LaunchedEffect(file) { code = withContext(Dispatchers.IO) { manager.readFile(file).getOrDefault("") } }
-    Column(Modifier.fillMaxSize()) { SectionTitle("CODE EDITOR", "Monospaced workspace with live persistence"); Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { files.forEach { TextButton(onClick = { file = it }) { Text(it, color = if (it == file) Teal else Muted, fontSize = 11.sp) } } }; OutlinedTextField(value = code, onValueChange = { code = it; saved = false }, textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp), modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), label = { Text(file) }); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { Text(if (saved) "Saved" else "Unsaved", color = if (saved) Teal else Color(0xFFFFB86B), modifier = Modifier.padding(12.dp)); Button(onClick = { scope.launch { manager.writeFile(file, code); saved = true } }, colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Ink)) { Text("SAVE") } } }
+    val diagnostics = remember(file, code) { CodeDiagnostics.analyze(file, code) }
+    Column(Modifier.fillMaxSize()) { SectionTitle("CODE EDITOR", "Monospaced workspace with live persistence"); Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { files.forEach { TextButton(onClick = { file = it }) { Text(it, color = if (it == file) Teal else Muted, fontSize = 11.sp) } } }; OutlinedTextField(value = code, onValueChange = { code = it; saved = false }, textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp), modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), label = { Text(file) }); if (diagnostics.isNotEmpty()) Text("${diagnostics.size} issue(s): ${diagnostics.first().message}", color = Color(0xFFFFB86B), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp)); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { Text(if (saved) "Saved" else "Unsaved", color = if (saved) Teal else Color(0xFFFFB86B), modifier = Modifier.padding(12.dp)); Button(onClick = { scope.launch { manager.writeFile(file, code); saved = true } }, colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Ink)) { Text("SAVE") }; Spacer(Modifier.width(8.dp)); OutlinedButton(onClick = { code = code.replace(Regex("\\s+$", RegexOption.MULTILINE), ""); saved = false }) { Text("AUTO-FIX") } } }
 }
 
 @Composable private fun TerminalScreen() {
