@@ -51,8 +51,11 @@ class VoiceAgentService : Service() {
     private fun configureGemini() {
         gemini?.close(); gemini = null
         val prefs = getSharedPreferences("agent", MODE_PRIVATE)
-        val model = prefs.getString("gemini_model", "gemini-2.5-flash").orEmpty().ifBlank { "gemini-2.5-flash" }
-        gemini = runCatching { GeminiAgentManager(modelName = model) }.getOrNull()
+        val endpoint = prefs.getString("gateway_url", "").orEmpty()
+        val token = prefs.getString("gateway_token", "").orEmpty()
+        val provider = prefs.getString("gateway_provider", "auto").orEmpty().ifBlank { "auto" }
+        val model = prefs.getString("gateway_model", "default").orEmpty().ifBlank { "default" }
+        gemini = runCatching { GeminiAgentManager(endpoint, token, provider, model) }.getOrNull()
     }
 
     private fun handle(text: String) {

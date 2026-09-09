@@ -144,21 +144,26 @@ private fun navIcon(i: Int) = when (i) { 0 -> Icons.Default.Home; 1 -> Icons.Def
 
 @Composable private fun ApiSettingsCard(context: android.content.Context) {
     val prefs = remember(context) { context.getSharedPreferences("agent", android.content.Context.MODE_PRIVATE) }
-    var model by remember { mutableStateOf(prefs.getString("gemini_model", "gemini-2.5-flash").orEmpty()) }
+    var endpoint by remember { mutableStateOf(prefs.getString("gateway_url", "").orEmpty()) }
+    var token by remember { mutableStateOf(prefs.getString("gateway_token", "").orEmpty()) }
+    var provider by remember { mutableStateOf(prefs.getString("gateway_provider", "auto").orEmpty()) }
+    var model by remember { mutableStateOf(prefs.getString("gateway_model", "default").orEmpty()) }
     var message by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     CardBox {
         Text("AI API CONNECTION", color = Teal, fontSize = 10.sp, letterSpacing = 2.sp)
-        Text("Gemini", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 7.dp))
-        Text("Firebase AI Logic connection", color = Teal, fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp))
-        OutlinedTextField(value = model, onValueChange = { model = it }, singleLine = true, label = { Text("Model") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-        Text("Add app/google-services.json from Firebase Console. Do not paste a Gemini API key into the APK.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 7.dp))
+        Text("Multi-provider AI gateway", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 7.dp))
+        OutlinedTextField(value = endpoint, onValueChange = { endpoint = it }, singleLine = true, label = { Text("Gateway URL") }, placeholder = { Text("https://your-server.example") }, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+        OutlinedTextField(value = token, onValueChange = { token = it }, singleLine = true, label = { Text("Gateway token (optional)") }, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+        OutlinedTextField(value = provider, onValueChange = { provider = it }, singleLine = true, label = { Text("Provider: auto / gemini / openai / claude") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+        OutlinedTextField(value = model, onValueChange = { model = it }, singleLine = true, label = { Text("Model (default is allowed)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+        Text("Provider keys stay on the gateway server, not in the APK.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 7.dp))
         Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = { prefs.edit().remove("gemini_key").apply(); message = "Local API-key field cleared" }) { Text("CLEAR", color = Color(0xFFFF6B7A)) }
-            Button(onClick = { prefs.edit().putString("gemini_model", model.trim().ifBlank { "gemini-2.5-flash" }).apply(); message = "Model saved. Firebase config is required." }, colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Ink)) { Text("SAVE MODEL") }
+            TextButton(onClick = { endpoint = ""; token = ""; prefs.edit().remove("gateway_url").remove("gateway_token").apply(); message = "Gateway settings cleared" }) { Text("CLEAR", color = Color(0xFFFF6B7A)) }
+            Button(onClick = { prefs.edit().putString("gateway_url", endpoint.trim()).putString("gateway_token", token.trim()).putString("gateway_provider", provider.trim().ifBlank { "auto" }).putString("gateway_model", model.trim().ifBlank { "default" }).apply(); message = "Gateway settings saved" }, colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Ink)) { Text("SAVE GATEWAY") }
         }
         Button(onClick = { if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) message = "Allow microphone permission first" else { ContextCompat.startForegroundService(context, Intent(context, VoiceAgentService::class.java).setAction(VoiceAgentService.ACTION_RELOAD_API)); message = "Maria service started" } }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp), colors = ButtonDefaults.buttonColors(containerColor = Raised)) { Text("START / RESTART MARIA", color = Teal) }
-        OutlinedButton(onClick = { scope.launch { message = "Testing Firebase AI Logic…"; val result = runCatching { withContext(Dispatchers.IO) { GeminiAgentManager(modelName = model.trim().ifBlank { "gemini-2.5-flash" }).testConnection() } }; message = result.fold({ it.fold({ "Connected: ${it.take(50)}" }, { "Connection failed: ${it.message ?: "unknown error"}" }) }, { "Connection failed: ${it.message ?: "Firebase is not configured"}" }) } }, modifier = Modifier.fillMaxWidth().padding(top = 7.dp)) { Text("TEST CONNECTION", color = Teal) }
+        OutlinedButton(onClick = { scope.launch { message = "Testing gateway…"; val result = runCatching { withContext(Dispatchers.IO) { GeminiAgentManager(endpoint.trim(), token.trim(), provider.trim().ifBlank { "auto" }, model.trim().ifBlank { "default" }).testConnection() } }; message = result.fold({ it.fold({ "Connected: ${it.take(50)}" }, { "Connection failed: ${it.message ?: "unknown error"}" }) }, { "Connection failed: ${it.message ?: "invalid gateway settings"}" }) } }, modifier = Modifier.fillMaxWidth().padding(top = 7.dp)) { Text("TEST CONNECTION", color = Teal) }
         if (message.isNotBlank()) Text(message, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 7.dp))
     }
 }
