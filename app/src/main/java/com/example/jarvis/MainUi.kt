@@ -144,22 +144,21 @@ private fun navIcon(i: Int) = when (i) { 0 -> Icons.Default.Home; 1 -> Icons.Def
 
 @Composable private fun ApiSettingsCard(context: android.content.Context) {
     val prefs = remember(context) { context.getSharedPreferences("agent", android.content.Context.MODE_PRIVATE) }
-    var key by remember { mutableStateOf(prefs.getString("gemini_key", "").orEmpty()) }
     var model by remember { mutableStateOf(prefs.getString("gemini_model", "gemini-2.5-flash").orEmpty()) }
     var message by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     CardBox {
         Text("AI API CONNECTION", color = Teal, fontSize = 10.sp, letterSpacing = 2.sp)
         Text("Gemini", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 7.dp))
-        OutlinedTextField(value = key, onValueChange = { key = it }, singleLine = true, label = { Text("Gemini API key") }, placeholder = { Text("Paste your Google AI Studio key") }, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+        Text("Firebase AI Logic connection", color = Teal, fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp))
         OutlinedTextField(value = model, onValueChange = { model = it }, singleLine = true, label = { Text("Model") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-        Text("The key is stored locally on this device and is never committed to GitHub.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 7.dp))
+        Text("Add app/google-services.json from Firebase Console. Do not paste a Gemini API key into the APK.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 7.dp))
         Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = { key = ""; prefs.edit().remove("gemini_key").apply(); message = "API key cleared" }) { Text("CLEAR", color = Color(0xFFFF6B7A)) }
-            Button(onClick = { prefs.edit().putString("gemini_key", key.trim()).putString("gemini_model", model.trim().ifBlank { "gemini-2.5-flash" }).apply(); message = if (key.isBlank()) "Enter a key before connecting" else "Saved. Start Maria to connect." }, colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Ink)) { Text("SAVE API") }
+            TextButton(onClick = { prefs.edit().remove("gemini_key").apply(); message = "Local API-key field cleared" }) { Text("CLEAR", color = Color(0xFFFF6B7A)) }
+            Button(onClick = { prefs.edit().putString("gemini_model", model.trim().ifBlank { "gemini-2.5-flash" }).apply(); message = "Model saved. Firebase config is required." }, colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Ink)) { Text("SAVE MODEL") }
         }
         Button(onClick = { if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) message = "Allow microphone permission first" else { ContextCompat.startForegroundService(context, Intent(context, VoiceAgentService::class.java).setAction(VoiceAgentService.ACTION_RELOAD_API)); message = "Maria service started" } }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp), colors = ButtonDefaults.buttonColors(containerColor = Raised)) { Text("START / RESTART MARIA", color = Teal) }
-        OutlinedButton(onClick = { val savedKey = key.trim(); if (savedKey.isBlank()) message = "Enter an API key first" else scope.launch { message = "Testing Gemini…"; val result = runCatching { withContext(Dispatchers.IO) { GeminiAgentManager(savedKey, model.trim().ifBlank { "gemini-2.5-flash" }).use { it.processTranscript("Reply with exactly CONNECTION_OK") } } }; message = result.fold({ it.fold({ "Connected: ${it.take(50)}" }, { "Connection failed: ${it.message ?: "unknown error"}" }) }, { "Connection failed: ${it.message ?: "invalid key or model"}" }) } }, modifier = Modifier.fillMaxWidth().padding(top = 7.dp)) { Text("TEST CONNECTION", color = Teal) }
+        OutlinedButton(onClick = { scope.launch { message = "Testing Firebase AI Logic…"; val result = runCatching { withContext(Dispatchers.IO) { GeminiAgentManager(modelName = model.trim().ifBlank { "gemini-2.5-flash" }).testConnection() } }; message = result.fold({ it.fold({ "Connected: ${it.take(50)}" }, { "Connection failed: ${it.message ?: "unknown error"}" }) }, { "Connection failed: ${it.message ?: "Firebase is not configured"}" }) } }, modifier = Modifier.fillMaxWidth().padding(top = 7.dp)) { Text("TEST CONNECTION", color = Teal) }
         if (message.isNotBlank()) Text(message, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 7.dp))
     }
 }

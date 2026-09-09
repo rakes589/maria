@@ -5,6 +5,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+// This is applied automatically when Firebase Console's google-services.json is added to app/.
+if (file("google-services.json").exists()) pluginManager.apply("com.google.gms.google-services")
+
 android {
     namespace = "com.example.jarvis"
     compileSdk = 35
@@ -53,6 +56,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("com.github.topjohnwu.libsu:core:6.0.0")
-    implementation("com.google.genai:google-genai-kotlin:1.0.0")
+    implementation(platform("com.google.firebase:firebase-bom:34.18.0"))
+    implementation("com.google.firebase:firebase-ai")
+    implementation("com.google.firebase:firebase-appcheck-debug")
     implementation("org.nanohttpd:nanohttpd:2.3.1")
 }
