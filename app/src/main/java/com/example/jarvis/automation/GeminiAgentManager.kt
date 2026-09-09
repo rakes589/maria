@@ -19,7 +19,7 @@ class GeminiAgentManager(private val apiKeyIgnored: String = "", private val mod
     suspend fun processTranscript(text: String): Result<String> = withContext(Dispatchers.IO) { mutex.withLock {
         runCatching {
             require(text.isNotBlank()) { "Empty request" }
-            check(FirebaseApp.getApps().isNotEmpty()) { "Firebase is not configured. Add google-services.json and enable Firebase AI Logic." }
+            FirebaseApp.getInstance()
             val response = model.generateContent("You are Maria, an Android automation assistant. Answer concisely. User request: $text")
             response.text?.trim()?.takeIf { it.isNotBlank() } ?: error("Gemini returned an empty response")
         }
