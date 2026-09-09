@@ -22,7 +22,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 
-class GeminiAgentManager(private val apiKey: String, model: String = "gemini-flash-latest") : AutoCloseable {
+class GeminiAgentManager(private val apiKey: String, model: String = "gemini-2.5-flash") : AutoCloseable {
     sealed interface State { data object Idle : State; data object Thinking : State; data object ExecutingTool : State; data class Ready(val text: String) : State; data class Failed(val message: String) : State }
     // Do not initialize the network client during Activity startup when the user has not yet
     // configured credentials. The Builder UI must remain usable without Gemini configured.

@@ -32,12 +32,23 @@ class VoiceAgentService : Service() {
         startForeground(1001, android.app.Notification.Builder(this, "voice_agent").setContentTitle("Maria active").setContentText("Listening for wake word").setSmallIcon(android.R.drawable.ic_btn_speak_now).build())
         capsule = FloatingCapsuleController(this).also { it.show() }
         scope.launch { AgentStateManager.state.collect { capsule?.update(it) } }
-        val key = getSharedPreferences("agent", MODE_PRIVATE).getString("gemini_key", null).orEmpty()
-        val model = getSharedPreferences("agent", MODE_PRIVATE).getString("gemini_model", "gemini-flash-latest").orEmpty().ifBlank { "gemini-flash-latest" }
-        if (key.isNotBlank()) gemini = GeminiAgentManager(key, model)
+        configureGemini()
         tts = TextToSpeechHelper(this)
         speech = SpeechHandler(this, "maria") { text -> handle(text) }.also { it.start() }
         AgentStateManager.set(AgentState.LISTENING)
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_RELOAD_API) configureGemini()
+        return START_STICKY
+    }
+
+    private fun configureGemini() {
+        gemini?.close(); gemini = null
+        val prefs = getSharedPreferences("agent", MODE_PRIVATE)
+        val key = prefs.getString("gemini_key", null).orEmpty()
+        val model = prefs.getString("gemini_model", "gemini-2.5-flash").orEmpty().ifBlank { "gemini-2.5-flash" }
+        if (key.isNotBlank()) gemini = runCatching { GeminiAgentManager(key, model) }.getOrNull()
     }
 
     private fun handle(text: String) {
@@ -45,7 +56,7 @@ class VoiceAgentService : Service() {
         scope.launch { mutex.withLock {
             speech?.stop(); AgentStateManager.set(AgentState.THINKING)
             val result = gemini?.processTranscript(text)
-            if (result?.isSuccess == true) speak(result.getOrThrow()) else speak(if (gemini == null) "Gemini is not configured yet." else "I lost connection to the server.")
+            if (result?.isSuccess == true) speak(result.getOrThrow()) else speak(if (gemini == null) "Gemini is not configured yet." else "Gemini request failed: ${result?.exceptionOrNull()?.message ?: "unknown error"}")
             if (!job.isCancelled) { speech?.start(); AgentStateManager.set(AgentState.LISTENING) }
         } }
     }
@@ -54,4 +65,6 @@ class VoiceAgentService : Service() {
     override fun onLowMemory() { super.onLowMemory(); speech?.stop(); gemini?.clearTransientCaches(); if (!job.isCancelled && !speaking) speech?.start() }
     override fun onDestroy() { AgentStateManager.reset(); speech?.destroy(); tts?.close(); gemini?.close(); capsule?.close(); capsule = null; scope.cancel(); job.cancel(); super.onDestroy() }
     override fun onBind(intent: Intent?): IBinder? = null
+
+    companion object { const val ACTION_RELOAD_API = "com.example.jarvis.action.RELOAD_API" }
 }

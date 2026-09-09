@@ -44,6 +44,7 @@ import com.example.jarvis.agent.AgentStateManager
 import com.example.jarvis.agent.AgentTaskPlanner
 import com.example.jarvis.automation.RootShellHelper
 import com.example.jarvis.automation.VoiceAgentService
+import com.example.jarvis.automation.GeminiAgentManager
 import com.example.jarvis.builder.ProjectFileManager
 import com.example.jarvis.builder.CodeDiagnostics
 import com.example.jarvis.settings.requestBatteryOptimizationExemption
@@ -144,8 +145,9 @@ private fun navIcon(i: Int) = when (i) { 0 -> Icons.Default.Home; 1 -> Icons.Def
 @Composable private fun ApiSettingsCard(context: android.content.Context) {
     val prefs = remember(context) { context.getSharedPreferences("agent", android.content.Context.MODE_PRIVATE) }
     var key by remember { mutableStateOf(prefs.getString("gemini_key", "").orEmpty()) }
-    var model by remember { mutableStateOf(prefs.getString("gemini_model", "gemini-flash-latest").orEmpty()) }
+    var model by remember { mutableStateOf(prefs.getString("gemini_model", "gemini-2.5-flash").orEmpty()) }
     var message by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
     CardBox {
         Text("AI API CONNECTION", color = Teal, fontSize = 10.sp, letterSpacing = 2.sp)
         Text("Gemini", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 7.dp))
@@ -154,9 +156,10 @@ private fun navIcon(i: Int) = when (i) { 0 -> Icons.Default.Home; 1 -> Icons.Def
         Text("The key is stored locally on this device and is never committed to GitHub.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 7.dp))
         Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = { key = ""; prefs.edit().remove("gemini_key").apply(); message = "API key cleared" }) { Text("CLEAR", color = Color(0xFFFF6B7A)) }
-            Button(onClick = { prefs.edit().putString("gemini_key", key.trim()).putString("gemini_model", model.trim().ifBlank { "gemini-flash-latest" }).apply(); message = if (key.isBlank()) "Enter a key before connecting" else "Saved. Start Maria to connect." }, colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Ink)) { Text("SAVE API") }
+            Button(onClick = { prefs.edit().putString("gemini_key", key.trim()).putString("gemini_model", model.trim().ifBlank { "gemini-2.5-flash" }).apply(); message = if (key.isBlank()) "Enter a key before connecting" else "Saved. Start Maria to connect." }, colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Ink)) { Text("SAVE API") }
         }
         Button(onClick = { ContextCompat.startForegroundService(context, Intent(context, VoiceAgentService::class.java)); message = "Maria service started" }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp), colors = ButtonDefaults.buttonColors(containerColor = Raised)) { Text("START / RESTART MARIA", color = Teal) }
+        OutlinedButton(onClick = { val savedKey = key.trim(); if (savedKey.isBlank()) message = "Enter an API key first" else scope.launch { message = "Testing Gemini…"; val result = withContext(Dispatchers.IO) { GeminiAgentManager(savedKey, model).use { it.processTranscript("Reply with exactly CONNECTION_OK") } }; message = result.fold({ "Connected: ${it.take(50)}" }, { "Connection failed: ${it.message ?: "unknown error"}" }) } }, modifier = Modifier.fillMaxWidth().padding(top = 7.dp)) { Text("TEST CONNECTION", color = Teal) }
         if (message.isNotBlank()) Text(message, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 7.dp))
     }
 }
