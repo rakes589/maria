@@ -43,6 +43,7 @@ class GeminiAgentManager(
     } }
 
     suspend fun testConnection(): Result<String> = processTranscript("Reply with exactly CONNECTION_OK")
-    private fun quote(value: String) = Json.encodeToString(kotlinx.serialization.json.JsonPrimitive(value))
+    private fun quote(value: String) = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r") + "\""
+    fun clearTransientCaches() = Unit
     override fun close() = Unit
 }
