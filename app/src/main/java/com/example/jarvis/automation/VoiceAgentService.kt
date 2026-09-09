@@ -4,6 +4,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.IBinder
 import com.example.jarvis.agent.AgentState
 import com.example.jarvis.agent.AgentStateManager
@@ -34,8 +35,12 @@ class VoiceAgentService : Service() {
         scope.launch { AgentStateManager.state.collect { capsule?.update(it) } }
         configureGemini()
         tts = TextToSpeechHelper(this)
-        speech = SpeechHandler(this, "maria") { text -> handle(text) }.also { it.start() }
-        AgentStateManager.set(AgentState.LISTENING)
+        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            speech = SpeechHandler(this, "maria") { text -> handle(text) }.also { it.start() }
+            AgentStateManager.set(AgentState.LISTENING)
+        } else {
+            AgentStateManager.set(AgentState.ERROR)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
